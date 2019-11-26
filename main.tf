@@ -76,3 +76,67 @@ resource "aws_route_table_association" "b" {
   subnet_id      = "${aws_subnet.public-b.id}"
   route_table_id = "${aws_route_table.r.id}"
 }
+
+resource "aws_key_pair" "deployer" {
+  key_name   = "ec2-key-tf"
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDWho12nLAhDkI017YPNgFEn+8H3+is9kR11Bgi+0jJusmW2ObY9dwIEzrWwWc+6Oy0DYFigjYxDOLWqHbFFKoRKwwhUNLPHiJyaWnLLdCBuyiOOVTJAphFA8LHGx+l5VJbvkqBP50+EtiG5MpSL2osziFd4UhcOQRtgYfT345VhDoU4UCvB54cS+d2A5TSHeCg3pYgFtDxHssKHn/7O8dr1dTYFJonOsmLPK7U6RcCjTtU6fVzkkzRKAn1SgHGqaLRFSWfwzHkBPtp45bgzwK89Rawrsp+at/K9m4zKVv7Da202d8yIJtCog4SBDWecqTmkLhauJZgqREY+bUq8ZHn ec2-user@ip-10-0-1-237"
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"] # Canonical 
+}
+
+resource "aws_security_group" "allow_http" {
+  name        = "allow_tls"
+  description = "Allow TLS inbound traffic"
+  vpc_id      = "${aws_vpc.default.id}"
+
+  ingress {
+    # TLS (change to whatever ports you need)
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  egress {
+  from_port   = 0
+  to_port     = 0
+  protocol    = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_http-tf"
+  }
+}
+
+resource "aws_instance" "web" {
+  ami           = "${data.aws_ami.ubuntu.id}"
+  instance_type = "t2.micro"
+  key_name      = "${aws_key_pair.deployer.id}"
+  associate_public_ip_address = true
+  subnet_id     = "${aws_subnet.public-a.id}"
+  vpc_security_group_ids = ["${aws_security_group.allow_http.id}"]
+  user_data     = "${file("${path.module}/user-data.sh")}"
+
+  tags = {
+    Name = "webserver-tf"
+  }
+}
+
+output "instance_ip_addr" {
+  value = "${aws_instance.web.public_ip}"
+}
