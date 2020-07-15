@@ -77,10 +77,16 @@ resource "aws_route_table_association" "b" {
   route_table_id = "${aws_route_table.r.id}"
 }
 
+resource "tls_private_key" "example" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
 resource "aws_key_pair" "deployer" {
   key_name   = "ec2-key-tf"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDWho12nLAhDkI017YPNgFEn+8H3+is9kR11Bgi+0jJusmW2ObY9dwIEzrWwWc+6Oy0DYFigjYxDOLWqHbFFKoRKwwhUNLPHiJyaWnLLdCBuyiOOVTJAphFA8LHGx+l5VJbvkqBP50+EtiG5MpSL2osziFd4UhcOQRtgYfT345VhDoU4UCvB54cS+d2A5TSHeCg3pYgFtDxHssKHn/7O8dr1dTYFJonOsmLPK7U6RcCjTtU6fVzkkzRKAn1SgHGqaLRFSWfwzHkBPtp45bgzwK89Rawrsp+at/K9m4zKVv7Da202d8yIJtCog4SBDWecqTmkLhauJZgqREY+bUq8ZHn ec2-user@ip-10-0-1-237"
+  public_key = "${tls_private_key.example.public_key_openssh}"
 }
+
 
 data "aws_ami" "ubuntu" {
   most_recent = true
