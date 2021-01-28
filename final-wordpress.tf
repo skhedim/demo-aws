@@ -221,3 +221,10 @@ output "db_password" {
   value = random_password.dbpassword.result
 }
 
+output "public_ip" {
+ value = aws_instance.wordpress.public_ip
+}
+
+output "private_key" {
+  value = tls_private_key.example.private_key_pem
+}
