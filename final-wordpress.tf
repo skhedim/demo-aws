@@ -43,7 +43,7 @@ resource "aws_subnet" "private-a" {
 resource "aws_subnet" "private-b" {
   vpc_id     = aws_vpc.epsi-tf.id
   cidr_block = "10.0.4.0/24"
-  availability_zone = "us-east-1a"
+  availability_zone = "us-east-1b"
   
   tags = {
     Name = "private-b-tf"
@@ -108,7 +108,12 @@ resource "aws_instance" "wordpress" {
         Name = "wordpress"
     }
     
-    user_data = file("${path.root}/wordpress.sh")
+    #user_data = file("${path.root}/wordpress.sh")
+    #user_data = data.template_file.init.rendered
+    user_data = templatefile("${path.root}/wordpress.sh", {
+      password = random_password.dbpassword.result
+      endpoint = aws_db_instance.dbWordPress.address
+    })
   }
   
   resource "aws_security_group" "allow_http" {
@@ -175,3 +180,44 @@ resource "aws_security_group" "allow_rds" {
     Name = "allow_http-tf"
   }
 }
+
+resource "aws_db_subnet_group" "rds" {
+  name       = "wordpress"
+  subnet_ids = [aws_subnet.private-a.id, aws_subnet.private-b.id]
+
+  tags = {
+    Name = "wordpress-rds"
+  }
+}
+
+resource "aws_db_instance" "dbWordPress" {
+  engine = "mysql"
+  engine_version = "5.7"
+  allocated_storage = 20
+  instance_class = "db.t2.micro"
+  vpc_security_group_ids = [aws_security_group.allow_rds.id]
+  db_subnet_group_name = aws_db_subnet_group.rds.name
+  name = "wordpress"
+  username = "admin"
+  password = random_password.dbpassword.result
+  skip_final_snapshot = true
+  
+  tags = {
+      Name = "WordPress DB"
+  }
+}
+
+/*
+data "template_file" "init" {
+  template = "${file("wordpress.sh")}"
+  vars = {
+    endpoint = aws_db_instance.dbWordPress.address
+    password = random_password.dbpassword.result
+  }
+}
+*/
+
+output "db_password" {
+  value = random_password.dbpassword.result
+}
+
