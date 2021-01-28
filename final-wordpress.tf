@@ -145,3 +145,9 @@ resource "aws_key_pair" "deployer" {
   key_name   = "ec2-key-tf"
   public_key = tls_private_key.example.public_key_openssh
 }
+
+resource "random_password" "dbpassword" {
+  length = 16
+  special = true
+  override_special = "_%@"
+}
