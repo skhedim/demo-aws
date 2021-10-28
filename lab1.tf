@@ -103,7 +103,6 @@ resource "aws_instance" "wordpress" {
   tags = {
     Name = "wordpress"
   }
-  user_data = file("${path.root}/script.sh")
 }
 
 output "prive_key" {
