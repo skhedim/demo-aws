@@ -94,7 +94,7 @@ resource "aws_key_pair" "deployer" {
 }
 
 resource "aws_instance" "wordpress" {
-  ami                         = "ami-0a2aac51080583d59"
+  ami                         = "ami-02e136e904f3da870"
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.deployer.key_name
   subnet_id                   = aws_subnet.public-a.id
