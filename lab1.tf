@@ -94,17 +94,98 @@ resource "aws_key_pair" "deployer" {
 }
 
 resource "aws_instance" "wordpress" {
-  ami                         = "ami-02e136e904f3da870"
+  ami                         = "ami-0a2aac51080583d59"
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.deployer.key_name
   subnet_id                   = aws_subnet.public-a.id
   associate_public_ip_address = true
+  security_groups = [aws_security_group.allow_http.id]
 
   tags = {
     Name = "wordpress"
   }
 }
 
-output "prive_key" {
-  value = tls_private_key.example.private_key_pem
+resource "aws_security_group" "allow_http" {
+  name        = "allow_http"
+  description = "Allow http inbound traffic"
+  vpc_id      = aws_vpc.epsi-tf.id
+
+  ingress {
+    description = "HTTP from VPC"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_http"
+  }
+}
+
+resource "random_password" "dbpassword" {
+  length  = 16
+  special = false
+}
+
+resource "aws_security_group" "allow_rds" {
+  name        = "allow_rds"
+  description = "Allow mysql inbound traffic"
+  vpc_id      = aws_vpc.epsi-tf.id
+
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.allow_http.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_http-tf"
+  }
+}
+
+resource "aws_db_subnet_group" "rds" {
+  name       = "wordpress"
+  subnet_ids = [aws_subnet.private-a.id, aws_subnet.private-b.id]
+
+  tags = {
+    Name = "wordpress-rds"
+  }
+}
+
+resource "aws_db_instance" "dbWordPress" {
+  engine                 = "mysql"
+  engine_version         = "5.7"
+  allocated_storage      = 20
+  instance_class         = "db.t2.micro"
+  vpc_security_group_ids = [aws_security_group.allow_rds.id]
+  db_subnet_group_name   = aws_db_subnet_group.rds.name
+  name                   = "wordpress"
+  username               = "admin"
+  password               = random_password.dbpassword.result
+  skip_final_snapshot    = true
+
+  tags = {
+    Name = "WordPress DB"
+  }
+}
+
+output "public_ip" {
+  value = aws_instance.wordpress.public_ip
 }
