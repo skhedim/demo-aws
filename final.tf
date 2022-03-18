@@ -88,7 +88,62 @@ resource "tls_private_key" "example" {
   rsa_bits  = 4096
 }
 
+# chmod 600 myprivatekey.pem
 resource "aws_key_pair" "deployer" {
   key_name   = "ec2-key-tf"
   public_key = tls_private_key.example.public_key_openssh
+  
+  provisioner "local-exec" {
+    command = "echo '${tls_private_key.example.private_key_pem}' > ./myprivatekey.pem"     
+  }
+}
+
+resource "aws_instance" "wordpress" {
+  ami                         = "ami-0c02fb55956c7d316"
+  instance_type               = "t2.micro"
+  vpc_security_group_ids      = [aws_security_group.allow_http.id]
+  key_name                    = aws_key_pair.deployer.key_name
+  subnet_id                   = aws_subnet.public-a.id
+  associate_public_ip_address = true
+
+   tags = {
+    Name = "webserver-tf"
+  }
+}
+
+resource "aws_security_group" "allow_http" {
+  name        = "allow_http"
+  description = "Allow http inbound traffic"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "HTTP for all"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "SSH from VPC"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_http"
+  }
+}
+
+output "public_ip" {
+  value = aws_instance.wordpress.public_ip
 }
