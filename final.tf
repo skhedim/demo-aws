@@ -1,8 +1,8 @@
 provider "aws" {
   region     = "us-east-1"
-  access_key = "ASIAZWEC3M2PWPFQRQ74"
-  secret_key = "azj9q2VYulpgAQNA5hSNSGBs3vprLHW35EtPigg1"
-  token      = "FwoGZXIvYXdzEFIaDDDUSBXU+u6wgLVA2SK9AW8sAZWTwRIJKMFD9pnMBBeXsCewWxTeSTAO0X2HgpOcm8/N84c0d4/ySd4VM8UkAJe8jD83i1cif0EHt/tpZBmx5C2qYkoGKdJqkH8jN/MPrX4wJ4NGbDJWxYOJLp0usNulL/nqc50PMVNS9ZNJKk520yc/WRiVWk4dQJqzhsJEP9dUQo0dSHITyEsi81a38oSdOe99ACzadeM1lwmPtqOu0LuA9L3iamFTRo6Ksyz0YeU2xfeSQam2tJzsJyi7/9CRBjItiJYLGiOsC2mcj5TYk8lgY7yC6LDLdtLYrVkIDJ8KCssgjZUz8HG8XBE33I5r"
+  access_key = "ASIAZWEC3M2P72RX7R6G"
+  secret_key = "LSBtu1Qv6p3oxZqx+DjQ7uS6I8iG4k6fVkD96hCY"
+  token      = "FwoGZXIvYXdzEFYaDKkqE6bvrepM5uLkSiK9AY6e92xKG1KbRVFLYtk3/Bzq9W0DJqIx7SQR5bUB/0lwIN5SQL6gzDpuPrxsINF6lqlirgKugy9MNsNHnRMaBTRkrVwz/nblNJXMWbanGOJKkQojO99YDF1FqL7HEg5NPI66oZYihA6v7gk5OU0CK52rGjL6Af9KFRbEQHtmoXVDfsbC8HH3J2dgtutbv9Yd6mgDoHilw6bDIocp2KFRiiQTOQlU36yyCkmpBSSqkMH32+J4zaEj1d/wMbcppCjS9dGRBjItASrjOt7q3gMPZrej6iJzqVEyQ5RzKYMH52RXt0m0q+uZou8ai7NmYAVfyNWG"
 }
 
 resource "aws_vpc" "main" {
@@ -106,7 +106,7 @@ resource "aws_instance" "wordpress" {
   subnet_id                   = aws_subnet.public-a.id
   associate_public_ip_address = true
 
-   tags = {
+  tags = {
     Name = "webserver-tf"
   }
 }
@@ -142,6 +142,66 @@ resource "aws_security_group" "allow_http" {
   tags = {
     Name = "allow_http"
   }
+}
+
+resource "random_password" "dbpassword" {
+  length  = 16
+  special = false
+}
+
+resource "aws_security_group" "allow_rds" {
+  name        = "allow_rds"
+  description = "Allow mysql inbound traffic"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.allow_http.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_http-tf"
+  }
+}
+
+resource "aws_db_subnet_group" "rds" {
+  name       = "wordpress"
+  subnet_ids =[aws_subnet.private-a.id, aws_subnet.private-b.id]
+
+  tags = {
+    Name = "wordpress-rds"
+  }
+}
+
+resource "aws_db_instance" "dbWordPress" {
+  engine                 = "mysql"
+  engine_version         = "5.7"
+  allocated_storage      = 20
+  instance_class         = "db.t2.micro"
+  vpc_security_group_ids = [aws_security_group.allow_rds.id]
+  db_subnet_group_name   = aws_db_subnet_group.rds.name
+  name                   = "wordpress"
+  username               = "admin"
+  password               = random_password.dbpassword.result
+  skip_final_snapshot    = true
+
+  tags = {
+    Name = "WordPress DB"
+  }
+}
+
+output "db_password" {
+  value = random_password.dbpassword.result
+  sensitive = true
 }
 
 output "public_ip" {
